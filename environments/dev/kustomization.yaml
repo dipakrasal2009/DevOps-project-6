@@ -1,0 +1,79 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../apps/flask-app/deployment.yaml
+- ../../apps/microservice-1/deployment.yaml
+- ../../apps/microservice-2/deployment.yaml
+
+namespace: dev
+
+commonLabels:
+  environment: dev
+
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: flask-app
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+        - name: flask-app
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: user-service
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+        - name: user-service
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: product-service
+  spec:
+    replicas: 1
+    template:
+      spec:
+        containers:
+        - name: product-service
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "25m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+
+configMapGenerator:
+- name: dev-config
+  literals:
+  - LOG_LEVEL=DEBUG
+  - DEBUG=true
+
+secretGenerator:
+- name: dev-secrets
+  literals:
+  - secret-key=dev-secret-key-123

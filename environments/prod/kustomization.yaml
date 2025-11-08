@@ -1,0 +1,109 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../apps/flask-app/deployment.yaml
+- ../../apps/microservice-1/deployment.yaml
+- ../../apps/microservice-2/deployment.yaml
+
+namespace: production
+
+commonLabels:
+  environment: production
+
+patchesStrategicMerge:
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: flask-app
+  spec:
+    replicas: 3
+    template:
+      spec:
+        containers:
+        - name: flask-app
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "400m"
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: user-service
+  spec:
+    replicas: 3
+    template:
+      spec:
+        containers:
+        - name: user-service
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+- |-
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: product-service
+  spec:
+    replicas: 3
+    template:
+      spec:
+        containers:
+        - name: product-service
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+configMapGenerator:
+- name: prod-config
+  literals:
+  - LOG_LEVEL=WARNING
+  - DEBUG=false
+
+secretGenerator:
+- name: prod-secrets
+  literals:
+  - secret-key=prod-secret-key-789
+
+# Production-specific patches
+patches:
+- target:
+    kind: Deployment
+    name: flask-app
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: PRODUCTION_MODE
+        value: "true"
+- target:
+    kind: Deployment
+    name: user-service
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: PRODUCTION_MODE
+        value: "true"
+- target:
+    kind: Deployment
+    name: product-service
+  patch: |-
+    - op: add
+      path: /spec/template/spec/containers/0/env/-
+      value:
+        name: PRODUCTION_MODE
+        value: "true"

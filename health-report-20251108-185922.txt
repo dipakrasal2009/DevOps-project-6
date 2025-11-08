@@ -1,0 +1,112 @@
+DevOps Pipeline Health Report
+Generated: Sat Nov  8 06:59:22 PM IST 2025
+================================
+
+Cluster Status:
+[0;32mKubernetes control plane[0m is running at [0;33mhttps://127.0.0.1:35013[0m
+[0;32mCoreDNS[0m is running at [0;33mhttps://127.0.0.1:35013/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy[0m
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+Node Status:
+NAME                            STATUS   ROLES           AGE   VERSION
+devops-pipeline-control-plane   Ready    control-plane   93m   v1.34.0
+
+Namespace Status:
+NAME                 STATUS   AGE
+argocd               Active   91m
+default              Active   93m
+gitea                Active   91m
+ingress-nginx        Active   92m
+kube-node-lease      Active   93m
+kube-public          Active   93m
+kube-system          Active   93m
+local-path-storage   Active   93m
+minio                Active   91m
+trivy-system         Active   91m
+velero               Active   91m
+
+Pod Status:
+NAMESPACE            NAME                                                    READY   STATUS    RESTARTS      AGE
+argocd               argocd-application-controller-0                         1/1     Running   0             87m
+argocd               argocd-applicationset-controller-7b6ff755dc-cxgfz       1/1     Running   0             87m
+argocd               argocd-dex-server-584f7d88dc-r7962                      1/1     Running   0             87m
+argocd               argocd-notifications-controller-67cdd486c6-bbzlf        1/1     Running   0             87m
+argocd               argocd-redis-6dbb9f6cf4-f6frk                           1/1     Running   0             87m
+argocd               argocd-repo-server-57bdcb5898-dxxq4                     1/1     Running   0             87m
+argocd               argocd-server-57d9cc9bcf-b9kkh                          1/1     Running   0             87m
+gitea                gitea-6f4bc4b7ff-8lbtd                                  1/1     Running   0             91m
+gitea                gitea-postgresql-ha-pgpool-77cf966fb7-98l7t             1/1     Running   1 (89m ago)   91m
+gitea                gitea-postgresql-ha-postgresql-0                        1/1     Running   0             91m
+gitea                gitea-postgresql-ha-postgresql-1                        1/1     Running   0             91m
+gitea                gitea-postgresql-ha-postgresql-2                        1/1     Running   0             91m
+gitea                gitea-valkey-cluster-0                                  1/1     Running   1 (88m ago)   91m
+gitea                gitea-valkey-cluster-1                                  1/1     Running   0             91m
+gitea                gitea-valkey-cluster-2                                  1/1     Running   0             91m
+ingress-nginx        ingress-nginx-controller-76f7f87994-qszlw               1/1     Running   0             92m
+kube-system          coredns-66bc5c9577-mn99s                                1/1     Running   0             93m
+kube-system          coredns-66bc5c9577-vg9p9                                1/1     Running   0             93m
+kube-system          etcd-devops-pipeline-control-plane                      1/1     Running   0             93m
+kube-system          kindnet-k2744                                           1/1     Running   0             93m
+kube-system          kube-apiserver-devops-pipeline-control-plane            1/1     Running   3 (64m ago)   93m
+kube-system          kube-controller-manager-devops-pipeline-control-plane   1/1     Running   7 (61m ago)   93m
+kube-system          kube-proxy-wgwtd                                        1/1     Running   0             93m
+kube-system          kube-scheduler-devops-pipeline-control-plane            1/1     Running   8 (61m ago)   93m
+local-path-storage   local-path-provisioner-7b8c8ddbd6-jz9tp                 1/1     Running   0             93m
+trivy-system         trivy-operator-74f6d56bc-rclhc                          1/1     Running   0             82m
+
+Service Status:
+NAMESPACE       NAME                                      TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)                      AGE
+argocd          argocd-applicationset-controller          ClusterIP      10.96.155.135   <none>        7000/TCP,8080/TCP            87m
+argocd          argocd-dex-server                         ClusterIP      10.96.228.82    <none>        5556/TCP,5557/TCP,5558/TCP   87m
+argocd          argocd-metrics                            ClusterIP      10.96.247.202   <none>        8082/TCP                     87m
+argocd          argocd-notifications-controller-metrics   ClusterIP      10.96.94.72     <none>        9001/TCP                     87m
+argocd          argocd-redis                              ClusterIP      10.96.38.242    <none>        6379/TCP                     87m
+argocd          argocd-repo-server                        ClusterIP      10.96.68.94     <none>        8081/TCP,8084/TCP            87m
+argocd          argocd-server                             LoadBalancer   10.96.245.53    <pending>     80:31130/TCP,443:31197/TCP   87m
+argocd          argocd-server-metrics                     ClusterIP      10.96.113.3     <none>        8083/TCP                     87m
+default         kubernetes                                ClusterIP      10.96.0.1       <none>        443/TCP                      93m
+gitea           gitea-http                                ClusterIP      None            <none>        3000/TCP                     91m
+gitea           gitea-postgresql-ha-pgpool                ClusterIP      10.96.138.162   <none>        5432/TCP                     91m
+gitea           gitea-postgresql-ha-postgresql            ClusterIP      10.96.255.30    <none>        5432/TCP                     91m
+gitea           gitea-postgresql-ha-postgresql-headless   ClusterIP      None            <none>        5432/TCP                     91m
+gitea           gitea-ssh                                 ClusterIP      None            <none>        22/TCP                       91m
+gitea           gitea-valkey-cluster                      ClusterIP      10.96.34.49     <none>        6379/TCP                     91m
+gitea           gitea-valkey-cluster-headless             ClusterIP      None            <none>        6379/TCP,16379/TCP           91m
+ingress-nginx   ingress-nginx-controller                  LoadBalancer   10.96.253.2     <pending>     80:31701/TCP,443:30322/TCP   92m
+ingress-nginx   ingress-nginx-controller-admission        ClusterIP      10.96.14.226    <none>        443/TCP                      92m
+kube-system     kube-dns                                  ClusterIP      10.96.0.10      <none>        53/UDP,53/TCP,9153/TCP       93m
+trivy-system    trivy-operator                            ClusterIP      None            <none>        80/TCP                       82m
+
+Ingress Status:
+NAMESPACE   NAME    CLASS    HOSTS         ADDRESS     PORTS   AGE
+gitea       gitea   <none>   gitea.local   localhost   80      91m
+
+ArgoCD Applications:
+NAME                   SYNC STATUS   HEALTH STATUS
+devops-pipeline-apps   Unknown       Healthy
+
+Velero Backups:
+No backups found
+
+Trivy Vulnerability Reports:
+NAMESPACE            NAME                                                              REPOSITORY                       TAG                  SCANNER   AGE
+argocd               replicaset-674f8f88fb                                             argoproj/argocd                  v3.2.0               Trivy     56m
+argocd               replicaset-95db7d7b4                                              argoproj/argocd                  v3.2.0               Trivy     56m
+argocd               replicaset-argocd-dex-server-584f7d88dc-dex                       dexidp/dex                       v2.43.0              Trivy     73m
+argocd               replicaset-argocd-redis-6dbb9f6cf4-redis                          docker/library/redis             8.2.2-alpine         Trivy     64m
+argocd               replicaset-argocd-redis-6dbb9f6cf4-secret-init                    argoproj/argocd                  v3.2.0               Trivy     73m
+argocd               replicaset-argocd-repo-server-57bdcb5898-argocd-repo-server       argoproj/argocd                  v3.2.0               Trivy     56m
+argocd               statefulset-68bbf5999d                                            argoproj/argocd                  v3.2.0               Trivy     73m
+gitea                replicaset-gitea-postgresql-ha-pgpool-77cf966fb7-pgpool           bitnamilegacy/pgpool             4.6.3-debian-12-r0   Trivy     56m
+gitea                statefulset-gitea-valkey-cluster-gitea-valkey-cluster             bitnamilegacy/valkey-cluster     8.1.3-debian-12-r3   Trivy     73m
+ingress-nginx        replicaset-ingress-nginx-controller-76f7f87994-controller         ingress-nginx/controller         v1.14.0              Trivy     56m
+kube-system          daemonset-kindnet-kindnet-cni                                     kindest/kindnetd                 v20250512-df8de77b   Trivy     73m
+kube-system          daemonset-kube-proxy-kube-proxy                                   kube-proxy                       v1.34.0              Trivy     78m
+kube-system          pod-54b47c6d9d                                                    kube-controller-manager          v1.34.0              Trivy     78m
+kube-system          pod-etcd-devops-pipeline-control-plane-etcd                       etcd                             3.6.4-0              Trivy     73m
+kube-system          pod-kube-apiserver-devops-pipeline-control-plane-kube-apiserver   kube-apiserver                   v1.34.0              Trivy     79m
+kube-system          pod-kube-scheduler-devops-pipeline-control-plane-kube-scheduler   kube-scheduler                   v1.34.0              Trivy     73m
+kube-system          replicaset-coredns-66bc5c9577-coredns                             coredns/coredns                  v1.12.1              Trivy     72m
+local-path-storage   replicaset-79b57cf4ff                                             kindest/local-path-provisioner   v20250214-acbabc1a   Trivy     56m
+trivy-system         replicaset-trivy-operator-74f6d56bc-trivy-operator                aquasec/trivy-operator           0.29.0               Trivy     68m
