@@ -79,11 +79,26 @@ nodes:
   - containerPort: 443
     hostPort: 443
     protocol: TCP
-  - containerPort: 3000
-    hostPort: 3000
+  - containerPort: 30080
+    hostPort: 30080
     protocol: TCP
-  - containerPort: 8080
-    hostPort: 8080
+  - containerPort: 30081
+    hostPort: 30081
+    protocol: TCP
+  - containerPort: 30082
+    hostPort: 30082
+    protocol: TCP
+  - containerPort: 30083
+    hostPort: 30083
+    protocol: TCP
+  - containerPort: 30084
+    hostPort: 30084
+    protocol: TCP
+  - containerPort: 30085
+    hostPort: 30085
+    protocol: TCP
+  - containerPort: 30500
+    hostPort: 30500
     protocol: TCP
 EOF
 
@@ -445,6 +460,7 @@ print_status "Installing MinIO..."
 helm repo add minio https://charts.min.io/
 helm repo update
 
+# Create MinIO values without ingress (will use NodePort later)
 cat > /tmp/minio-values.yaml << EOF
 mode: standalone
 auth:
@@ -458,38 +474,137 @@ service:
   type: ClusterIP
   port: 9000
 ingress:
-  enabled: true
-  hosts:
-    - host: minio.local
-      paths:
-        - path: /
-          pathType: Prefix
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+  enabled: false
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
 EOF
 
-# Install MinIO without --wait
+# Install MinIO
 print_status "Installing MinIO (this may take several minutes)..."
-helm install minio minio/minio \
+if helm install minio minio/minio \
   --namespace ${MINIO_NAMESPACE} \
   --values /tmp/minio-values.yaml \
   --timeout 10m \
   --wait=false \
-  --atomic=false || print_warning "MinIO helm install completed with warnings"
+  --atomic=false 2>&1 | tee /tmp/minio-install.log; then
+    print_success "MinIO Helm installation started"
+else
+    if grep -q "already exists" /tmp/minio-install.log; then
+        print_warning "MinIO already installed, skipping..."
+    else
+        print_warning "MinIO installation had issues, but continuing..."
+    fi
+fi
 
 # Wait for MinIO pods to be ready
 print_status "Waiting for MinIO pods to be ready..."
 sleep 20
+
 # Wait for pods to appear first
 for i in {1..30}; do
-    if kubectl get pods -n ${MINIO_NAMESPACE} -l app=minio 2>/dev/null | grep -v NAME | grep -q .; then
+    if kubectl get pods -n ${MINIO_NAMESPACE} 2>/dev/null | grep -v NAME | grep -q .; then
         break
     fi
     sleep 5
 done
 
-kubectl wait --for=condition=ready --timeout=600s pod -l app=minio -n ${MINIO_NAMESPACE} || \
-    print_warning "MinIO pods may still be starting, but continuing..."
+# Check if MinIO pods exist
+if kubectl get pods -n ${MINIO_NAMESPACE} 2>/dev/null | grep -v NAME | grep -q .; then
+    kubectl wait --for=condition=ready --timeout=600s pod -l app.kubernetes.io/name=minio -n ${MINIO_NAMESPACE} 2>/dev/null || \
+        kubectl wait --for=condition=ready --timeout=600s pod -l app=minio -n ${MINIO_NAMESPACE} 2>/dev/null || \
+        print_warning "MinIO pods may still be starting, but continuing..."
+    print_success "MinIO installation completed"
+else
+    print_warning "MinIO pods not found, but continuing with setup..."
+fi
+
+# Install Local Docker Registry
+print_status "Installing Local Docker Registry..."
+kubectl create namespace registry 2>/dev/null || true
+
+cat > /tmp/registry-deployment.yaml << 'EOF'
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docker-registry
+  namespace: registry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docker-registry
+  template:
+    metadata:
+      labels:
+        app: docker-registry
+    spec:
+      containers:
+      - name: registry
+        image: registry:2
+        ports:
+        - containerPort: 5000
+        volumeMounts:
+        - name: registry-storage
+          mountPath: /var/lib/registry
+      volumes:
+      - name: registry-storage
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry
+  namespace: registry
+spec:
+  type: NodePort
+  ports:
+  - port: 5000
+    targetPort: 5000
+    nodePort: 30500
+  selector:
+    app: docker-registry
+EOF
+
+kubectl apply -f /tmp/registry-deployment.yaml
+print_status "Waiting for Docker registry to be ready..."
+sleep 10
+kubectl wait --for=condition=available --timeout=300s deployment/docker-registry -n registry 2>/dev/null || print_warning "Registry may still be starting"
+
+# Configure containerd to allow insecure registry
+print_status "Configuring containerd for insecure registry..."
+docker exec devops-pipeline-control-plane bash -c "mkdir -p /etc/containerd/certs.d/docker-registry.registry:5000" 2>/dev/null || true
+docker exec devops-pipeline-control-plane bash -c 'cat > /etc/containerd/certs.d/docker-registry.registry:5000/hosts.toml << "EOFHOSTS"
+server = "http://docker-registry.registry:5000"
+
+[host."http://docker-registry.registry:5000"]
+  capabilities = ["pull", "resolve"]
+  skip_verify = true
+EOFHOSTS
+' 2>/dev/null || print_warning "Could not configure containerd (will use IP-based registry)"
+
+# Also configure using registry IP as fallback
+REGISTRY_IP=$(kubectl get svc docker-registry -n registry -o jsonpath='{.spec.clusterIP}')
+if [ -n "$REGISTRY_IP" ]; then
+    docker exec devops-pipeline-control-plane bash -c "mkdir -p /etc/containerd/certs.d/${REGISTRY_IP}:5000" 2>/dev/null || true
+    docker exec devops-pipeline-control-plane bash -c "cat > /etc/containerd/certs.d/${REGISTRY_IP}:5000/hosts.toml << EOFHOSTS
+server = \"http://${REGISTRY_IP}:5000\"
+
+[host.\"http://${REGISTRY_IP}:5000\"]
+  capabilities = [\"pull\", \"resolve\"]
+  skip_verify = true
+EOFHOSTS
+" 2>/dev/null || true
+    print_success "Registry configured with IP: ${REGISTRY_IP}"
+fi
+
+# Restart containerd
+docker exec devops-pipeline-control-plane systemctl restart containerd 2>/dev/null || print_warning "Could not restart containerd"
+sleep 5
+
+print_success "Local Docker Registry installed on port 30500"
+rm -f /tmp/registry-deployment.yaml
 
 # Install Trivy Operator
 print_status "Installing Trivy Operator..."
@@ -602,34 +717,123 @@ if [ -z "$ARGOCD_PASSWORD" ]; then
     ARGOCD_PASSWORD="<retrieve-later>"
 fi
 
-# Check if running as root and set SUDO prefix accordingly
-SUDO_HOSTS=""
-if [[ $EUID -eq 0 ]]; then
-   SUDO_HOSTS=""
-else
-   SUDO_HOSTS="sudo"
+# Setup Gitea Repository and ArgoCD Integration
+print_status "Setting up Gitea repository and ArgoCD integration..."
+
+# Wait for Gitea to be fully ready
+print_status "Waiting for Gitea to be ready..."
+sleep 30
+for i in {1..30}; do
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:30084 2>/dev/null | grep -q "200\|302"; then
+        print_success "Gitea is ready"
+        break
+    fi
+    sleep 5
+done
+
+# Create repository via Gitea API
+GITEA_URL="http://localhost:30084"
+GITEA_USER="admin"
+GITEA_PASS="admin123"
+REPO_NAME="devops-pipeline"
+
+print_status "Creating repository in Gitea..."
+curl -X POST "${GITEA_URL}/api/v1/user/repos" \
+  -H "Content-Type: application/json" \
+  -u "${GITEA_USER}:${GITEA_PASS}" \
+  -d "{
+    \"name\": \"${REPO_NAME}\",
+    \"description\": \"DevOps Pipeline Application\",
+    \"private\": false,
+    \"auto_init\": false
+  }" 2>/dev/null && print_success "Repository created in Gitea" || print_warning "Repository may already exist"
+
+# Initialize git repository
+print_status "Initializing Git repository..."
+if [ ! -d ".git" ]; then
+    git init
+    git config user.email "devops@local"
+    git config user.name "DevOps Pipeline"
+    git add .
+    git commit -m "Initial commit - DevOps Pipeline" || true
 fi
 
-# Create /etc/hosts entries
-print_status "Adding entries to /etc/hosts..."
-if ! grep -q "gitea.local" /etc/hosts 2>/dev/null; then
-    echo "127.0.0.1 gitea.local" | ${SUDO_HOSTS} tee -a /etc/hosts
+# Add Gitea as remote
+print_status "Adding Gitea as remote..."
+if git remote | grep -q gitea; then
+    git remote remove gitea
 fi
-if ! grep -q "minio.local" /etc/hosts 2>/dev/null; then
-    echo "127.0.0.1 minio.local" | ${SUDO_HOSTS} tee -a /etc/hosts
+git remote add gitea "${GITEA_URL}/${GITEA_USER}/${REPO_NAME}.git"
+
+# Push to Gitea
+print_status "Pushing code to Gitea..."
+git push -u gitea main 2>/dev/null || git push -u gitea master 2>/dev/null || print_warning "Failed to push to Gitea (will retry in deploy script)"
+
+# Configure ArgoCD to use Gitea repository
+print_status "Configuring ArgoCD to watch Gitea repository..."
+kubectl apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: devops-pipeline-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: http://gitea-http.gitea.svc.cluster.local:3000/${GITEA_USER}/${REPO_NAME}.git
+    targetRevision: HEAD
+    path: environments/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+EOF
+
+print_success "ArgoCD configured to watch Gitea repository"
+
+# Get public IP for access URLs
+print_status "Detecting public IP address..."
+PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null)
+if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP=$(curl -s ifconfig.me 2>/dev/null)
 fi
-if ! grep -q "argocd.local" /etc/hosts 2>/dev/null; then
-    echo "127.0.0.1 argocd.local" | ${SUDO_HOSTS} tee -a /etc/hosts
+if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP=$(hostname -I | awk '{print $1}')
+fi
+if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP="<YOUR_PUBLIC_IP>"
+    print_warning "Could not detect public IP automatically"
 fi
 
 # Clean up temporary files
-rm -f /tmp/kind-config.yaml /tmp/gitea-values.yaml /tmp/gitea-values-no-ingress.yaml /tmp/minio-values.yaml /tmp/credentials-velero /tmp/argocd-app.yaml /tmp/argocd-install.yaml /tmp/gitea-install.log 2>/dev/null || true
+rm -f /tmp/kind-config.yaml /tmp/gitea-values.yaml /tmp/gitea-values-no-ingress.yaml /tmp/minio-values.yaml /tmp/credentials-velero /tmp/argocd-app.yaml /tmp/argocd-install.yaml /tmp/gitea-install.log /tmp/registry-deployment.yaml 2>/dev/null || true
 
 print_success "Cluster bootstrap completed successfully!"
-print_status "Access URLs:"
-echo "  Gitea: http://gitea.local (admin/admin123)"
-echo "  MinIO: http://minio.local (minioadmin/minioadmin123)"
-echo "  ArgoCD: http://argocd.local (admin/${ARGOCD_PASSWORD})"
-print_status "Next steps:"
-echo "  1. Run: ./deploy_pipeline.sh"
-echo "  2. Run: ./check_env.sh"
+echo ""
+echo "=========================================="
+echo "✅ Infrastructure Ready!"
+echo "=========================================="
+echo ""
+print_status "Installed Components:"
+echo "  ✅ Kubernetes Cluster (kind)"
+echo "  ✅ NGINX Ingress Controller"
+echo "  ✅ Gitea (Git Server)"
+echo "  ✅ ArgoCD (GitOps)"
+echo "  ✅ MinIO (S3 Storage)"
+echo "  ✅ Trivy Operator (Security Scanning)"
+echo "  ✅ Velero (Backup & Restore)"
+echo ""
+print_status "ArgoCD Password: ${ARGOCD_PASSWORD}"
+echo ""
+print_status "Next Steps:"
+echo "  1. Run: ./deploy_pipeline.sh (to deploy applications)"
+echo "  2. Run: ./check_env.sh (to verify and get access URLs)"
+echo ""
+print_status "Note: Services will be accessible via NodePort after running deploy_pipeline.sh"
+echo "      Access URLs will be: http://${PUBLIC_IP}:PORT"
+echo ""

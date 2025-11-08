@@ -2,6 +2,24 @@
 
 A comprehensive DevOps ecosystem integrating Flask web application with microservices architecture, featuring GitOps with ArgoCD, automated CI/CD, container security scanning, multi-environment deployment, blue-green strategy, and backup & disaster recovery.
 
+## ⚡ Quick Start (4 Simple Steps)
+
+```bash
+# Step 1: Install prerequisites
+chmod +x setup_prereqs.sh && ./setup_prereqs.sh
+
+# Step 2: Bootstrap Kubernetes cluster (includes registry + Gitea setup)
+chmod +x bootstrap_cluster.sh && ./bootstrap_cluster.sh
+
+# Step 3: Deploy applications (GitOps workflow)
+chmod +x deploy_pipeline.sh && ./deploy_pipeline.sh
+
+# Step 4: Verify and get access URLs
+chmod +x check_env.sh && ./check_env.sh
+```
+
+**Then:** Open ports 30080-30085 and 30500 in AWS Security Group and access via `http://YOUR_IP:PORT`
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
@@ -177,7 +195,7 @@ graph TB
 
 ## 🚀 Quick Start
 
-### One-Command Setup
+### Complete Setup (One Command)
 
 ```bash
 # Clone the repository
@@ -191,14 +209,19 @@ chmod +x setup_prereqs.sh bootstrap_cluster.sh deploy_pipeline.sh check_env.sh
 
 **Note:** The scripts support running as root user on Amazon Linux 2023 or other RHEL-based systems. Sudo commands will be automatically skipped when running as root.
 
-### Verify Installation
+### Access Your Applications
 
-```bash
-# Check all components
-./check_env.sh
+After running the scripts, you'll get URLs like:
 
-# Expected output: ✅ All health checks passed! 🎉
 ```
+Flask App:       http://52.23.195.83:30080
+User Service:    http://52.23.195.83:30081/api/users
+Product Service: http://52.23.195.83:30082/api/products
+ArgoCD:          http://52.23.195.83:30083
+Gitea:           http://52.23.195.83:30084
+```
+
+**Important:** Open ports 30080-30084 in your AWS Security Group to access from browser.
 
 ## 📖 Detailed Setup
 
@@ -280,21 +303,34 @@ chmod +x check_env.sh
 
 ## 🌐 Access URLs
 
-After successful installation, access your applications:
+After successful installation, access your applications via **IP:PORT** (no hostname configuration needed):
 
 | Service | URL | Credentials |
 |---------|-----|-------------|
-| **Flask App** | http://flask-app.local | - |
-| **Gitea** | http://gitea.local | admin/admin123 |
-| **MinIO** | http://minio.local | minioadmin/minioadmin123 |
-| **ArgoCD** | http://argocd.local | admin/[see below] |
+| **Flask App** | http://YOUR_IP:30080 | - |
+| **User Service** | http://YOUR_IP:30081/api/users | - |
+| **Product Service** | http://YOUR_IP:30082/api/products | - |
+| **ArgoCD** | http://YOUR_IP:30083 | admin/[see below] |
+| **Gitea** | http://YOUR_IP:30084 | admin/admin123 |
 
 ### Get ArgoCD Password
 
 ```bash
 # Get ArgoCD admin password
-kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo
 ```
+
+### Open AWS Security Group Ports
+
+**Required:** Open ports 30080-30084 in your AWS Security Group:
+
+1. Go to: **AWS Console → EC2 → Security Groups**
+2. Select your instance's security group
+3. **Edit Inbound Rules → Add Rule:**
+   - Type: **Custom TCP**
+   - Port Range: **30080-30084**
+   - Source: **0.0.0.0/0** (or your IP for security)
+4. **Save rules**
 
 ## 🛠️ Manual Deployment and Testing
 

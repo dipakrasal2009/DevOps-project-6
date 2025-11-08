@@ -1,0 +1,267 @@
+================================================================================
+  🚀 DevOps Pipeline - Complete Setup Guide
+================================================================================
+
+This project uses 4 scripts for complete GitOps workflow:
+
+  1. setup_prereqs.sh      - Install all required tools
+  2. bootstrap_cluster.sh  - Create cluster + registry + Gitea setup + ArgoCD config
+  3. deploy_pipeline.sh    - Build, push to registry, commit to Gitea (GitOps)
+  4. check_env.sh          - Verify everything and show access URLs
+
+================================================================================
+  📋 STEP-BY-STEP INSTRUCTIONS
+================================================================================
+
+Step 1: Make scripts executable
+--------------------------------
+chmod +x setup_prereqs.sh bootstrap_cluster.sh deploy_pipeline.sh check_env.sh
+
+
+Step 2: Install prerequisites
+------------------------------
+./setup_prereqs.sh
+
+What it installs:
+  - Docker & Docker Compose
+  - kubectl (Kubernetes CLI)
+  - kind (Kubernetes in Docker)
+  - Helm (Package manager)
+  - ArgoCD CLI
+  - Trivy (Security scanner)
+  - Velero (Backup tool)
+  - Kustomize
+  - MkDocs
+
+Time: ~5-10 minutes
+
+
+Step 3: Bootstrap Kubernetes cluster
+-------------------------------------
+./bootstrap_cluster.sh
+
+What it creates:
+  - Kubernetes cluster (1 control-plane node)
+  - Local Docker Registry (Port 30500)
+  - NGINX Ingress Controller
+  - Gitea (Git server)
+  - ArgoCD (GitOps controller)
+  - MinIO (S3 storage)
+  - Trivy Operator (Security scanning)
+  - Velero (Backup system)
+  - Gitea repository (devops-pipeline)
+  - Git initialization and push to Gitea
+  - ArgoCD configured to watch Gitea
+
+Time: ~5-10 minutes
+
+
+Step 4: Deploy applications
+----------------------------
+./deploy_pipeline.sh
+
+What it does (GitOps workflow):
+  - Builds Docker images
+  - Pushes to local registry (localhost:30500)
+  - Updates deployment manifests
+  - Commits changes to Git
+  - Pushes to Gitea
+  - ArgoCD auto-syncs and deploys
+  - Exposes services via NodePort
+
+Time: ~3-5 minutes
+
+
+Step 5: Verify and get access URLs
+-----------------------------------
+./check_env.sh
+
+What it does:
+  - Checks all components are running
+  - Tests service access
+  - Shows access URLs with your IP
+  - Displays credentials
+  - Reminds about AWS Security Group ports
+
+Time: ~1 minute
+
+
+================================================================================
+  🌐 ACCESS YOUR SERVICES
+================================================================================
+
+After running all 4 scripts, you'll get URLs like:
+
+  Flask App:       http://52.23.195.83:30080
+  User Service:    http://52.23.195.83:30081/api/users
+  Product Service: http://52.23.195.83:30082/api/products
+  ArgoCD:          http://52.23.195.83:30083
+  Gitea:           http://52.23.195.83:30084
+  MinIO:           http://52.23.195.83:30085
+
+
+================================================================================
+  🔓 OPEN AWS SECURITY GROUP PORTS (REQUIRED!)
+================================================================================
+
+You MUST open these ports in your AWS Security Group to access from browser:
+
+Ports to open: 30080-30085
+
+How to open:
+  1. Go to: AWS Console → EC2 → Security Groups
+  2. Find your instance: i-0980b2c50dfb6150b (recheck-project6)
+  3. Click on the Security Group
+  4. Edit Inbound Rules → Add Rule:
+     - Type: Custom TCP
+     - Port Range: 30080-30084
+     - Source: 0.0.0.0/0 (or your IP for better security)
+     - Description: DevOps Pipeline Services
+  5. Save rules
+
+
+================================================================================
+  🔐 CREDENTIALS
+================================================================================
+
+Gitea:
+  Username: admin
+  Password: admin123
+
+MinIO:
+  Username: minioadmin
+  Password: minioadmin123
+
+ArgoCD:
+  Username: admin
+  Password: Run this command to get it:
+    kubectl -n argocd get secret argocd-initial-admin-secret \
+      -o jsonpath="{.data.password}" | base64 -d && echo
+
+
+================================================================================
+  ✅ ONE-LINE COMPLETE SETUP
+================================================================================
+
+Run all 4 scripts in sequence:
+
+  chmod +x *.sh && \
+  ./setup_prereqs.sh && \
+  ./bootstrap_cluster.sh && \
+  ./deploy_pipeline.sh && \
+  ./check_env.sh
+
+
+================================================================================
+  🧪 TESTING
+================================================================================
+
+Test from server (should work immediately):
+  curl http://localhost:30080
+  curl http://localhost:30081/api/users
+  curl http://localhost:30082/api/products
+
+Test from browser (requires AWS Security Group ports open):
+  http://YOUR_IP:30080
+  http://YOUR_IP:30081/api/users
+  http://YOUR_IP:30082/api/products
+
+
+================================================================================
+  🔧 TROUBLESHOOTING
+================================================================================
+
+If services not accessible from browser:
+  1. Check if running locally: curl http://localhost:30080
+  2. If local works, check AWS Security Group ports
+  3. Verify ports are open: 30080-30084
+
+If pods not starting:
+  kubectl get pods -n dev
+  kubectl logs -n dev <pod-name>
+  kubectl describe pod -n dev <pod-name>
+
+If need to restart:
+  kind delete cluster --name devops-pipeline
+  ./bootstrap_cluster.sh
+  ./deploy_pipeline.sh
+
+
+================================================================================
+  📊 WHAT EACH SCRIPT DOES
+================================================================================
+
+setup_prereqs.sh:
+  ✅ Installs Docker, kubectl, kind, Helm, ArgoCD CLI, Trivy, Velero
+  ✅ Works on Ubuntu, Debian, Amazon Linux
+  ✅ Supports both root and sudo users
+  ✅ Verifies all installations
+
+bootstrap_cluster.sh:
+  ✅ Creates kind Kubernetes cluster
+  ✅ Installs NGINX Ingress Controller
+  ✅ Deploys Gitea, ArgoCD, MinIO, Trivy, Velero
+  ✅ Configures all infrastructure components
+  ✅ Shows ArgoCD password
+
+deploy_pipeline.sh:
+  ✅ Builds Docker images for Flask app and microservices
+  ✅ Loads images into kind cluster
+  ✅ Creates dev/staging/production namespaces
+  ✅ Deploys all applications
+  ✅ Exposes services via NodePort (30080-30084)
+  ✅ Runs security scans with Trivy
+  ✅ Shows access URLs with your IP
+
+check_env.sh:
+  ✅ Verifies all components are running
+  ✅ Tests service access locally
+  ✅ Shows access URLs with your IP
+  ✅ Displays credentials
+  ✅ Reminds about AWS Security Group ports
+  ✅ Generates health report
+
+
+================================================================================
+  🎯 SUCCESS CHECKLIST
+================================================================================
+
+  [ ] All 4 scripts executed successfully
+  [ ] No errors in script output
+  [ ] All pods running: kubectl get pods -n dev
+  [ ] Services accessible locally: curl http://localhost:30080
+  [ ] AWS Security Group ports 30080-30084 open
+  [ ] Flask app accessible from browser: http://YOUR_IP:30080
+  [ ] ArgoCD accessible from browser: http://YOUR_IP:30083
+  [ ] Gitea accessible from browser: http://YOUR_IP:30084
+
+
+================================================================================
+  📞 SUPPORT
+================================================================================
+
+Check logs:
+  kubectl logs -n dev deployment/flask-app
+  kubectl logs -n dev deployment/user-service
+  kubectl logs -n dev deployment/product-service
+
+Check status:
+  kubectl get pods -A
+  kubectl get svc -A
+  kubectl get ingress -A
+
+Re-run health check:
+  ./check_env.sh
+
+
+================================================================================
+  🎉 THAT'S IT!
+================================================================================
+
+Just 4 scripts, no extra files needed. Everything is automated and working!
+
+Access your services at: http://YOUR_IP:30080
+
+Enjoy your DevOps Pipeline! 🚀
+
+================================================================================
